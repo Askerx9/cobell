@@ -1,7 +1,8 @@
 import React from 'react'
-import { StyleSheet, Text, View , Image, KeyboardAvoidingView, TouchableOpacity, Picker} from 'react-native'
+import { StyleSheet, Text, View , Image, KeyboardAvoidingView, TouchableOpacity, Picker, ActivityIndicator} from 'react-native'
 
 import wifi from 'react-native-android-wifi';
+import firebase from 'firebase';
 
 import {Input} from '../components/Input'
 import {Button} from '../components/Button'
@@ -33,15 +34,19 @@ export default class Configuration extends React.Component{
       ssid: [],
       selectSsid:'',
       password:'',
+      loading: false
     }
 
-    wifi.loadWifiList((wifiStringList) => {
-      var wifiArray = JSON.parse(wifiStringList);
+    firebase.database().ref('users/' + firebase.auth().currentUser.uid + "/connected").on('value', snapshot => {
+      this.setState({connected:snapshot.val()})
+    })
 
-      wifiArray.forEach((el) =>{
-        this.setState({ssid:[...this.state.ssid, el.SSID]})
-      })
-      console.info(this.state.ssid)
+    wifi.loadWifiList((wifiStringList) => {
+        var wifiArray = JSON.parse(wifiStringList);
+
+        wifiArray.forEach((el) =>{
+          this.setState({ssid:[...this.state.ssid, el.SSID]})
+        })
       },
       (error) => {
         console.log(error);
@@ -49,10 +54,18 @@ export default class Configuration extends React.Component{
     );
   }
 
-    render(){
+  connectToWifi () {
+    fetch('http://10.3.141.1/wifiUp.php?userId='+firebase.auth().currentUser.uid+'&ssid='+this.state.selectSsid+'&psk='+this.state.password)
+    .then(function(res){ console.log(res) })
+    .catch(function(res){ console.log(res) })
+    this.setState({loading:true})
+  }
+
+  render(){
+      if(!this.state.connected && !this.state.loading){
         const select = Object.keys(this.state.ssid).map(key => {
           return(
-            <Picker.Item key={key} label={this.state.ssid[key]} value={this.state.ssid[key]} />
+            <Picker.Item key={key} label={this.state.ssid[key]} value={this.state.ssid[key]} style={{ fontSize: 14}}/>
           )
         })
         return(
@@ -62,13 +75,16 @@ export default class Configuration extends React.Component{
             </View>
             <Text style={ styles.texte}>Connecter la sonnette à votre réseau Wi-Fi.</Text>
             <View style={styles.formContainer}>
-              <Picker
-                selectedValue={this.state.selectSsid}
-                style={{ height: 50, width: 300}}
-                onValueChange={(itemValue, itemIndex) => this.setState({selectSsid: itemValue})}>
-                <Picker.Item label="SSID" value='' />
-                {select}
-              </Picker>
+              <View style={styles.row}>
+                <Image style={ styles.ImageStyle} resizeMode="contain" source={require('../img/wifi.png') } />
+                <Picker
+                  selectedValue={this.state.selectSsid}
+                  style={{ height: 40, flex: 1}}
+                  onValueChange={(itemValue, itemIndex) => this.setState({selectSsid: itemValue})}>
+                  <Picker.Item label="SSID" value='' style={{ fontSize: 12, color:"#C6CCC2"}} />
+                  {select}
+                </Picker>
+              </View>
               <Input
                 image = {require('../img/password.png')}
                 placeholder = 'Mot de passe'
@@ -78,13 +94,39 @@ export default class Configuration extends React.Component{
                 value = {this.state.password}
                 onChangeText = {(text) => this.setState({password: text}) }
               />
-              <View style={styles.row}>
-                <Button onPress={() => console.log('ok')}>SE CONNECTER</Button>
-              </View>
+              <Button onPress={() => this.connectToWifi()}>SE CONNECTER</Button>
             </View>
           </KeyboardAvoidingView>
         )
-    }
+      }
+
+      else if(!this.state.connected && this.state.loading){
+        return(
+          <View style={styles.container}>
+            <View style={styles.containerLoading}>
+              <ActivityIndicator size="large" color="#C42C51" />
+              <Text style={styles.texte}>La sonnette redémarre.</Text>
+            </View>
+          </View>
+        )
+      }
+
+      else{
+        return(
+          <View style={styles.container}>
+            <View style={ {width:'100%', alignSelf: 'center', } }>
+              <Image style={ styles.img } source={require('../img/SmartphoneOk.png') } />
+            </View>
+            <Text style={ styles.texte}>La sonnette est prête</Text>
+            <Text style={ styles.texteLitle}>Maintenant que tout est configuré, 
+              vous aurez toujours votre 
+              sonnette à portée de main.
+            </Text>
+            <Button onPress={() => this.props.navigation.navigate('History')}>J'AI COMPRIS</Button>
+          </View>
+        )
+      }
+  }
 }
 
 const styles = StyleSheet.create({
@@ -95,11 +137,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
+  containerLoading: {
+    backgroundColor: '#FCFDFE',
+    alignItems: 'center',
+    position: 'relative',
+  },
   img: {
     width: 250,
     height: 250,
     marginBottom: 15,
-
     marginHorizontal: 'auto'
   },
   texte: {
@@ -111,24 +157,20 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     alignSelf: 'center'
   },
+  texteLitle: {
+    fontSize: 16,
+    fontWeight: "100",
+    color: '#C6CCC2',
+    width: 250,
+    textAlign: 'center',
+    marginBottom: 30,
+    alignSelf: 'center'
+  },
   formContainer: {
     width: 290,
     alignItems: 'center',
     justifyContent: 'center',
-   },
-  inputContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderBottomColor: "rgba(84,87,80,0.1)",
-    borderBottomWidth: 1,
-    height: 40,
-    paddingBottom: 5,
-    marginBottom: 10,
-   },
-   inputText: {
-    fontSize: 14,
-    flex: 1,
+    marginBottom: 10
    },
    ImageStyle: {
     marginTop: 2,
@@ -137,37 +179,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   row: {
-    marginVertical: 15,
-    width: 290,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-
-  checkView: {
-    marginTop: 15,
-  },
-  linkView: {
-    alignItems: "center",
-    flexDirection: "row",
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderBottomColor: "rgba(84,87,80,0.1)",
+    borderBottomWidth: 1,
+    height: 40,
+    paddingBottom: 0,
     marginBottom: 10,
-    marginHorizontal: 55,
   },
-  linkViewText: {
-    color: '#ADB1A4',
-    fontSize: 14
-  },
-  signUpText: {
-    color: '#C42C51',
-  },
-  signUplink: {
-    color: '#C42C51',
-    fontWeight: 'bold'
-  },
-  signUpTextContainer: {
-    marginTop: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  }
 
  });
 

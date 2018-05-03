@@ -18,12 +18,10 @@ export default class Login extends React.Component{
       password:'',
       keepConnect: false,
     }
-  }
-
-  componentDidMount() {
     firebase.auth().onAuthStateChanged((user) => {
       if (user) {
         this.props.navigation.navigate('History')
+        console.info(user)
       }
     });
   }
@@ -39,7 +37,6 @@ export default class Login extends React.Component{
     
     firebase.auth().signInWithEmailAndPassword(email, password)
     .then(() => { 
-      console.info('auth'); 
       this.navigateTo('History') 
     })
     .catch(() =>{ console.error('failed') })
@@ -75,15 +72,6 @@ export default class Login extends React.Component{
           />
           <View style={styles.row}>
             <Text style={styles.linkForget}>Mot de passe oublié</Text>
-            <CheckBox
-              label='Rester connecté'
-              // checked={true}
-              onChange={(checked) => this.setState({keepConnect: checked})}
-              checkedImage={require('../img/check.png')}
-              uncheckedImage={require('../img/uncheck.png')}
-              checkboxStyle= {{width: 10, height: 10}}
-              labelStyle= {{fontSize: 13, color: '#C6CCC2' }}
-            />
           </View>
           <Button onPress={() => this.onLogInPress()}>CONNECTEZ-VOUS</Button>
         </View>
@@ -143,25 +131,25 @@ const styles = StyleSheet.create({
       alignItems: 'center',
     },
     row: {
-      marginVertical: 20,
+      marginVertical: 15,
+      marginTop: 5,
       width: 290,
       flexDirection: 'row',
-      justifyContent: 'space-between',
     },
     linkForget: {
       fontSize: 13,
       fontWeight: '100',
       color: '#C6CCC2',
+      width: '100%',
+      textAlign: 'right',
     },
 
-    checkView: {
-      marginTop: 15,
-    },
     linkView: {
       alignItems: "center",
       flexDirection: "row",
       marginBottom: 10,
       marginHorizontal: 55,
+      
     },
     linkViewText: {
       color: '#ADB1A4',

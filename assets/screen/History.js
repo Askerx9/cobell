@@ -1,5 +1,6 @@
 import React from 'react'
-import {ActivityIndicator,TouchableOpacity,ImageBackground, View, StyleSheet, Image, Text} from 'react-native'
+import {ActivityIndicator,TouchableOpacity,ImageBackground, View, StyleSheet, Image, Text, ScrollView} from 'react-native'
+import _ from 'lodash'
 
 import { TabNavigator } from 'react-navigation';
 import firebase from 'firebase';
@@ -10,7 +11,8 @@ import Settings from '../screen/Settings'
 
 
 console.ignoredYellowBox = [
-  'Setting a timer'
+  'Setting a timer',
+  'Remote debugger'
 ]
 
 class History extends React.Component{
@@ -52,16 +54,23 @@ class History extends React.Component{
     
     const user = firebase.auth().currentUser;
     const getHistory = firebase.database().ref('users/' + user.uid + "/history");
-
-    
-    console.info(getHistory)
+    this.setState({
+      userId: user.uid
+    })
     
     getHistory.on('value', snapshot => {
-      this.setState({
-        empty: false,
-        loading: false,
-        data: snapshot.val()
-      })
+      if(snapshot.val() != null){
+        this.setState({
+          empty: false,
+          loading: false,
+          data: snapshot.val()
+        })
+      }
+      else{
+        this.setState({
+          loading: false,
+        })
+      }
     });
     
     wifi.loadWifiList((wifiStringList) => {
@@ -89,14 +98,37 @@ class History extends React.Component{
   }
 
   toConfig(){
-    wifi.findAndConnect('Cobell', 'MyCobell', (found) => {
-      if (found) {
-        console.log("wifi is in range");
-        this.props.navigation.navigate('Config')
-      } else {
-        console.log("wifi is not in range");
-      }
-    });
+
+    firebase.database().ref().child('users/' + this.state.userId  + '/connected').set(false)
+    .then(() => {
+      wifi.findAndConnect('Cobell', 'MyCobell', (found) => {
+        if (found) {
+          console.log("wifi is in range");
+          this.props.navigation.navigate('Config')
+        } else {
+          console.log("wifi is not in range");
+        }
+      });
+    })
+
+  }
+
+  deleteEntry(key){
+    firebase.database().ref().child('users/' + this.state.userId + '/history/' + key).remove()
+    if(_.size(this.state.data) == 1){
+      this.setState({
+        empty: true
+      })
+    }
+  }
+
+  dict_reverse(obj) {
+    new_obj= {}
+    rev_obj = Object.keys(obj).reverse();
+    rev_obj.forEach(function(i) { 
+      new_obj[i] = obj[i];
+    })
+    return new_obj;
   }
 
 
@@ -110,7 +142,7 @@ class History extends React.Component{
         </View>
       )
     }else{
-      if(this.state.empty && !this.state.cobellDetect && !this.props.loading){
+      if(this.state.empty && !this.state.cobellDetect && !this.state.loading){
         return(
           <View style={styles.container}>
             <Image style={ styles.img } source={ require('../img/ringabell.png') } />
@@ -121,8 +153,24 @@ class History extends React.Component{
       else if(!this.state.empty && this.state.cobellDetect && !this.props.loading){
 
         const date = new Date()
-        let fullDate = date.getDate()+"-"+(date.getMonth()+1)+"-"+date.getFullYear()
-        let time = date.getHours()+"h"+date.getMinutes()
+
+        let minutes = date.getMinutes()
+        let day = date.getDate()
+        let month = date.getMonth()+1
+        if(date.getMinutes() < 10){
+          minutes = "0" + date.getMinutes()
+        }
+
+        if(day < 10){
+          day = "0" + date.getDate()
+        }
+        
+        if(month < 10){
+          month = "0" + (date.getMonth()+1)
+        }
+
+        let fullDate = day+"-"+month+"-"+date.getFullYear()
+        let time = date.getHours()+"h"+minutes
 
         return(
           <View style={styles.container}>
@@ -145,13 +193,30 @@ class History extends React.Component{
           </View>
         )
       } else {
-        const data = Object.keys(this.state.data).map(key => {
-          const infos = this.state.data[key]
+        const rev = this.dict_reverse(this.state.data)
+        
+        const data = Object.keys(rev).map(key => {
+          const infos = rev[key]
           const img = {uri: infos.image}
-          const date = new Date(Number(infos.timestamp)*1000)
-          const minutes = "0" + date.getMinutes()
+          const date = new Date(Number(infos.timestamp))
 
-          let fullDate = date.getDate()+"-"+(date.getMonth()+1)+"-"+date.getFullYear();
+          let minutes = date.getMinutes()
+          let day = date.getDate()
+          let month = date.getMonth()+1
+          if(date.getMinutes() < 10){
+            minutes = "0" + date.getMinutes()
+          }
+
+          if(day < 10){
+            day = "0" + date.getDate()
+          }
+          
+          if(month < 10){
+            month = "0" + (date.getMonth()+1)
+          }
+
+
+          let fullDate = day+"-"+month+"-"+date.getFullYear();
           let time = date.getHours()+"h"+minutes;
 
           return(
@@ -167,7 +232,7 @@ class History extends React.Component{
                   <Text style={{color: '#C6CCC2', fontSize: 12}}>Vous avez ouvert à quelqu'un</Text>
                 </View>
               </ImageBackground>
-              <TouchableOpacity style={{position:'absolute', right: 48, bottom: 6, width: 29, height: 29}} onPress={() => console.log("pouet")}>
+              <TouchableOpacity style={{position:'absolute', right: 48, bottom: 6, width: 29, height: 29}} onPress={() => this.deleteEntry(key)}>
                 <Image style={{width: '100%', height: '100%', resizeMode : 'cover'}} source={require('../img/button.png')} />
               </TouchableOpacity>
             </View>
@@ -175,9 +240,9 @@ class History extends React.Component{
         })
 
         return(
-          <View style={styles.container}>
+          <ScrollView style={{backgroundColor: '#FCFDFE',}}>
             {data}
-          </View>
+          </ScrollView>
         )
       }
     }

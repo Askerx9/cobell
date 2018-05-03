@@ -107,6 +107,16 @@ android {
             abiFilters "armeabi-v7a", "x86"
         }
     }
+    signingConfigs {
+        release {
+            if (project.hasProperty('MYAPP_RELEASE_STORE_FILE')) {
+                storeFile file(MYAPP_RELEASE_STORE_FILE)
+                storePassword MYAPP_RELEASE_STORE_PASSWORD
+                keyAlias MYAPP_RELEASE_KEY_ALIAS
+                keyPassword MYAPP_RELEASE_KEY_PASSWORD
+            }
+        }
+    }
     splits {
         abi {
             reset()
@@ -119,6 +129,7 @@ android {
         release {
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            signingConfig signingConfigs.release
         }
     }
     // applicationVariants are e.g. debug, release
@@ -137,14 +148,17 @@ android {
 }
 
 dependencies {
+    compile(project(':react-native-firebase')) {
+        transitive = false
+    }
     
     implementation(project(':react-native-firebase')) {
         transitive = false
     }
 
     // Firebase dependencies
-    implementation "com.google.android.gms:play-services-base:12.0.1"
-    implementation "com.google.firebase:firebase-core:12.0.1"
+    implementation "com.google.android.gms:play-services-base:15.0.0"
+    implementation "com.google.firebase:firebase-core:15.0.0"
 
     compile project(':react-native-android-wifi')
     compile fileTree(dir: "libs", include: ["*.jar"])

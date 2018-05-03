@@ -7,9 +7,11 @@
     "test": "jest"
   },
   "dependencies": {
+    "firebase": "^4.13.1",
     "react": "^16.3.0-alpha.1",
     "react-native": "0.54.2",
     "react-native-android-wifi": "0.0.25",
+    "react-native-checkbox": "^2.0.0",
     "react-native-firebase": "^4.0.3",
     "react-navigation": "^1.5.11"
   },

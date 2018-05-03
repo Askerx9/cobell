@@ -27,8 +27,60 @@ export default class Doors extends React.Component{
         }
       }
 
+    constructor(props){
+      super(props)
+
+      this.state = {
+        empty: true,
+        data:'',
+      }
+
+      
+    }
+
+    componentWillMount(){
+      const user = firebase.auth().currentUser;
+      const getDoors = firebase.database().ref('users/' + user.uid + "/doors");
+      this.setState({
+        userId: user.uid
+      })
+
+      getDoors.on('value', snapshot => {
+        console.info(snapshot.val())
+        if(snapshot.val()){
+          this.setState({
+            empty: false,
+            data: snapshot.val()
+          })
+          console.info(this.state.data)
+        }
+        else{
+          this.setState({
+            empty: true,
+          })
+        }
+      });
+    }
+
     render() {
-        return(
+        if(!this.state.empty){
+          return(
+            <View style={ styles.container }>
+                <Image style = {{borderRadius: 230,height: 230, width: 230, resizeMode : 'cover', marginVertical: 10,marginBottom: 20, marginHorizontal: 'auto'}} source={{uri: this.state.data.image}}/>
+                <Text style={ styles.texte}>Il y a quelqu’un qui sonne à la porte!</Text>
+                <View style = {{marginBottom: 15}}>
+                  <Button>OUVRIR</Button>
+                </View>
+                <View style = {{marginBottom: 15}}>
+                  <Button>AFFICHER UN MESSAGE</Button>
+                </View>
+                <Text style={{color: '#C6CCC2', marginTop: 10}} onPress={() => console.info('tu l\'as ignoré wesh')}>Ignorer</Text>
+            </View>
+          )
+
+        }
+        else{
+          return(
             <View style={ styles.container }>
                 <Image style={ styles.img } source={require('../img/Porte.png')}/>
                 <Text style={ styles.texte}>Personne n’est à votre porte pour l’instant</Text>
@@ -39,7 +91,8 @@ export default class Doors extends React.Component{
                     <Button>AFFICHER UN MESSAGE</Button>
                 </View>
             </View>
-        )
+          )
+        }
     }
 } 
 
