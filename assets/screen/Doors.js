@@ -1,6 +1,5 @@
 import React from 'react'
-import {TouchableOpacity,View, StyleSheet, Image, Text} from 'react-native'
-
+import {Modal,View, StyleSheet, Image, Text, TextInput, TouchableOpacity} from 'react-native'
 
 import firebase from 'firebase';
 
@@ -29,52 +28,94 @@ export default class Doors extends React.Component{
 
     constructor(props){
       super(props)
-
+      const user = firebase.auth().currentUser;
       this.state = {
-        empty: true,
-        data:'',
+        data: state.report.doors,
+        userId: user.uid, 
+        modalVisible: false,
+        message: state.report.message,
       }
-
-      
     }
 
-    componentWillMount(){
-      const user = firebase.auth().currentUser;
-      const getDoors = firebase.database().ref('users/' + user.uid + "/doors");
-      this.setState({
-        userId: user.uid
+    componentDidMount() {
+      
+    }
+    componentWillMount() {
+      firebase.database().ref('users/' + this.state.userId +'/doors').on('value', snapshot => {
+        this.setState({data: snapshot.val()})
       })
+    }
 
-      getDoors.on('value', snapshot => {
-        console.info(snapshot.val())
-        if(snapshot.val()){
-          this.setState({
-            empty: false,
-            data: snapshot.val()
-          })
-          console.info(this.state.data)
-        }
-        else{
-          this.setState({
-            empty: true,
-          })
-        }
-      });
+    changeState(state, enter) {
+      firebase.database().ref().child('users/'+ this.state.userId +'/history/'+ enter +'/state').set(state)
+      firebase.database().ref().child('users/'+ this.state.userId +'/doors').set(false)
+    }
+
+    setModalVisible(visible) {
+      this.setState({modalVisible: visible});
+    }
+
+    sendMessage( message ) {
+
+      if(message.length == 0){
+        this.setState({message: false})
+        message = false
+      }
+
+      firebase.database().ref().child('users/'+ this.state.userId +'/message').set(message)
+      this.setModalVisible(!this.state.modalVisible)
     }
 
     render() {
-        if(!this.state.empty){
+
+      console.log(this.state.data, state.report)
+
+        if(this.state.data){
           return(
             <View style={ styles.container }>
-                <Image style = {{borderRadius: 230,height: 230, width: 230, resizeMode : 'cover', marginVertical: 10,marginBottom: 20, marginHorizontal: 'auto'}} source={{uri: this.state.data.image}}/>
-                <Text style={ styles.texte}>Il y a quelqu’un qui sonne à la porte!</Text>
-                <View style = {{marginBottom: 15}}>
-                  <Button>OUVRIR</Button>
+              <Modal 
+                animationType="slide"
+                transparent = {true}
+                visible={this.state.modalVisible}
+                // presentationStyle= "formSheet"
+                onRequestClose = {() => this.setModalVisible(!this.state.modalVisible)}  
+                onShow={() => { this.textInput.focus() }}
+              >
+                <View style={{margin: 22, paddingHorizontal: 22, paddingVertical: 15, width: 300,height: 150, backgroundColor: "#ffffff", borderBottomColor: "rgba(84,87,80,0.1)",
+      borderBottomWidth: 1, elevation: 2, justifyContent: 'space-between'}}> 
+                  <TextInput
+                    underlineColorAndroid="transparent"
+                    placeholder= "Écrivez votre message..."
+                    autoCapitalize = "none"
+                    autoCorrect = {true}
+                    keyboardType = 'default'
+                    returnKeyType= "send"
+                    returnKeyType= "send"
+                    autofocus= {true}
+                    multiline = {true}
+                    onChangeText = {(value)=> this.setState({message: value})}
+                    value = {this.state.message == false ? "" : this.state.message}
+                    ref = {(input) => this.textInput = input}
+                  />
+                  <View style={{flexDirection: 'row', justifyContent: 'space-around', width: '100%'}}>
+                    <TouchableOpacity style={{paddingVertical: 5, paddingHorizontal: 15}} onPress= {() => this.setModalVisible(!this.state.modalVisible)}>
+                      <Text style={{color: "#C6CCC2", fontSize: 13}}>Annuler</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={{backgroundColor: '#C42C51', paddingVertical: 5, paddingHorizontal: 15}} onPress={() => this.sendMessage(this.state.message)}>
+                      <Text style={{color: "#ffffff"}}>ENVOYER</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-                <View style = {{marginBottom: 15}}>
-                  <Button>AFFICHER UN MESSAGE</Button>
-                </View>
-                <Text style={{color: '#C6CCC2', marginTop: 10}} onPress={() => console.info('tu l\'as ignoré wesh')}>Ignorer</Text>
+              </Modal>
+              <Image style = {{borderRadius: 230,height: 230, width: 230, resizeMode : 'cover', marginVertical: 10,marginBottom: 20, marginHorizontal: 'auto'}} source={{uri: this.state.data.image}}/>
+              <Text style={ styles.texte}>Il y a quelqu’un qui sonne à la porte!</Text>
+              <View style = {{marginBottom: 15}}>
+                <Button onPress={() => this.changeState('Vous avez ouvert à la personne.', this.state.data.timestamp)}>OUVRIR</Button>
+              </View>
+              <View style = {{marginBottom: 15}}>
+                <Button onPress={() => this.setModalVisible(!this.state.modalVisible)}>AFFICHER UN MESSAGE</Button>
+              </View>
+              <Text style={{color: '#C6CCC2', marginTop: 10}} onPress={() => this.changeState('Vous avez ingoré la personne.', this.state.data.timestamp )}>Ignorer</Text>
             </View>
           )
 
@@ -82,14 +123,48 @@ export default class Doors extends React.Component{
         else{
           return(
             <View style={ styles.container }>
-                <Image style={ styles.img } source={require('../img/Porte.png')}/>
-                <Text style={ styles.texte}>Personne n’est à votre porte pour l’instant</Text>
-                <View style = {{marginBottom: 15}}>
-                 <Button>OUVRIR</Button>
+              <Modal 
+                animationType="slide"
+                transparent = {true}
+                visible={this.state.modalVisible}
+                // presentationStyle= "formSheet"
+                onRequestClose = {() => this.setModalVisible(!this.state.modalVisible)}  
+                onShow={() => { this.textInput.focus() }}
+              >
+                <View style={{margin: 22, paddingHorizontal: 22, paddingVertical: 15, width: 300,height: 150, backgroundColor: "#ffffff", borderBottomColor: "rgba(84,87,80,0.1)",
+      borderBottomWidth: 1, elevation: 2, justifyContent: 'space-between'}}> 
+                  <TextInput
+                    underlineColorAndroid="transparent"
+                    placeholder= "Écrivez votre message..."
+                    autoCapitalize = "none"
+                    autoCorrect = {true}
+                    keyboardType = 'default'
+                    returnKeyType= "send"
+                    returnKeyType= "send"
+                    autofocus= {true}
+                    multiline = {true}
+                    onChangeText = {(value)=> this.setState({message: value})}
+                    value = {this.state.message == false ? "" : this.state.message}
+                    ref = {(input) => this.textInput = input}
+                  />
+                  <View style={{flexDirection: 'row', justifyContent: 'space-around', width: '100%'}}>
+                    <TouchableOpacity style={{paddingVertical: 5, paddingHorizontal: 15}} onPress= {() => this.setModalVisible(!this.state.modalVisible)}>
+                      <Text style={{color: "#C6CCC2", fontSize: 13}}>Annuler</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={{backgroundColor: '#C42C51', paddingVertical: 5, paddingHorizontal: 15}} onPress={() => this.sendMessage(this.state.message)}>
+                      <Text style={{color: "#ffffff"}}>ENVOYER</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-                <View style = {{marginBottom: 15}}>
-                    <Button>AFFICHER UN MESSAGE</Button>
-                </View>
+              </Modal>
+              <Image style={ styles.img } source={require('../img/Porte.png')}/>
+              <Text style={ styles.texte}>Personne n’est à votre porte pour l’instant</Text>
+              <View style = {{marginBottom: 15}}>
+                <Button>OUVRIR</Button>
+              </View>
+              <View style = {{marginBottom: 15}}>
+                  <Button onPress={() => this.setModalVisible(!this.state.modalVisible)}>AFFICHER UN MESSAGE</Button>
+              </View>
             </View>
           )
         }

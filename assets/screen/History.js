@@ -1,6 +1,7 @@
 import React from 'react'
 import {ActivityIndicator,TouchableOpacity,ImageBackground, View, StyleSheet, Image, Text, ScrollView} from 'react-native'
 import _ from 'lodash'
+import PushNotification from 'react-native-push-notification'
 
 import { TabNavigator } from 'react-navigation';
 import firebase from 'firebase';
@@ -47,24 +48,80 @@ class History extends React.Component{
       ssid: [], 
     }
 
-    
+  }
+
+  componentDidMount() {
+    PushNotification.configure({
+        onNotification: function(notification) {
+            console.log( 'NOTIFICATION:', notification );
+        },
+    })
   }
 
   componentWillMount(){
-    
     const user = firebase.auth().currentUser;
-    const getHistory = firebase.database().ref('users/' + user.uid + "/history");
+    const getData = firebase.database().ref('users/' + user.uid);
     this.setState({
       userId: user.uid
     })
     
-    getHistory.on('value', snapshot => {
-      if(snapshot.val() != null){
+    getData.on('value', snapshot => {
+      global.state = {report: snapshot.val()};
+      if(snapshot.val().history != null){
         this.setState({
           empty: false,
           loading: false,
-          data: snapshot.val()
+          data: state.report
         })
+        if(snapshot.val().doors){
+          if(snapshot.val().settings.notif){
+            
+            if (snapshot.val().settings.derange){
+              
+              const startTime = snapshot.val().settings.derangeStart
+              const endTime = snapshot.val().settings.derangeEnd
+  
+              const date = new Date()
+  
+  
+              let day = date.getDate()
+              let month = date.getMonth()+1
+              let year = date.getFullYear()
+  
+              if(day < 10){
+                day = "0" + date.getDate()
+              }
+  
+              if(month < 10){
+                month = "0" + (date.getMonth()+1)
+              }
+  
+              const now = Date.now()
+                          
+              const start = new Date(year+'-'+month+'-'+day+'T'+startTime+':00')
+              let end = new Date(year+'-'+month+'-'+day+'T'+endTime+':00')
+  
+              if(end.getTime() < start.getTime()){
+                let newDay = Number(day)+1
+                if(newDay < 10){
+                  newDay = "0" + newDay
+                }
+                end = new Date(year+'-'+month+'-'+newDay+'T'+endTime+':00')
+                console.log('day +')
+              }
+              if(now < start.getTime() || now > end.getTime()){
+                PushNotification.localNotification({
+                  message: snapshot.val().name + " une personne est à votre porte!", // (required)
+                });
+              }
+            }else{
+              PushNotification.localNotification({
+                message: snapshot.val().name + " une personne est à votre porte!", // (required)
+              });
+            }
+            
+          }
+        }
       }
       else{
         this.setState({
@@ -74,31 +131,28 @@ class History extends React.Component{
     });
     
     wifi.loadWifiList((wifiStringList) => {
-      var wifiArray = JSON.parse(wifiStringList);
-      
-      wifiArray.forEach((el) =>{
-        this.setState({ssid:[...this.state.ssid, el.SSID]})
-      })
-      
-      if(this.state.ssid.indexOf('Cobell') != '-1'){
-        console.log(this.state.ssid);
+        var wifiArray = JSON.parse(wifiStringList);
         
-        this.setState({
-          cobellDetect: true,
-          loading: false,
-          empty: false,
+        wifiArray.forEach((el) =>{
+          this.setState({ssid:[...this.state.ssid, el.SSID]})
         })
         
+        if(this.state.ssid.indexOf('Cobell') != '-1'){
+          this.setState({
+            cobellDetect: true,
+            loading: false,
+            empty: false,
+          })
+          
+        }
+      },
+      (error) => {
+        console.log(error);
       }
-    },
-    (error) => {
-      console.log(error);
-    }
-  );
+    );
   }
 
   toConfig(){
-
     firebase.database().ref().child('users/' + this.state.userId  + '/connected').set(false)
     .then(() => {
       wifi.findAndConnect('Cobell', 'MyCobell', (found) => {
@@ -110,12 +164,12 @@ class History extends React.Component{
         }
       });
     })
-
   }
 
-  deleteEntry(key){
+  deleteEntry(key, image){
     firebase.database().ref().child('users/' + this.state.userId + '/history/' + key).remove()
-    if(_.size(this.state.data) == 1){
+    firebase.storage().ref().child(image).delete()
+    if(_.size(this.state.data.history) == 1){
       this.setState({
         empty: true
       })
@@ -193,7 +247,7 @@ class History extends React.Component{
           </View>
         )
       } else {
-        const rev = this.dict_reverse(this.state.data)
+        const rev = this.dict_reverse(this.state.data.history)
         
         const data = Object.keys(rev).map(key => {
           const infos = rev[key]
@@ -219,6 +273,11 @@ class History extends React.Component{
           let fullDate = day+"-"+month+"-"+date.getFullYear();
           let time = date.getHours()+"h"+minutes;
 
+
+          const re = /[a-zA-Z0-9]+\.jpg/;
+          const result = infos.image.match(re);
+          const image = result[0];
+
           return(
             <View key={key} style={{position:'relative'}}>
               <ImageBackground style={styles.infoContainer} source={require('../img/bg.png')}>
@@ -229,10 +288,10 @@ class History extends React.Component{
                     <Text style={styles.date}>{fullDate}</Text>
                     <Text style={styles.date}>{time}</Text>
                   </View>
-                  <Text style={{color: '#C6CCC2', fontSize: 12}}>Vous avez ouvert à quelqu'un</Text>
+                  <Text style={{color: '#C6CCC2', fontSize: 12}}>{infos.state}</Text>
                 </View>
               </ImageBackground>
-              <TouchableOpacity style={{position:'absolute', right: 48, bottom: 6, width: 29, height: 29}} onPress={() => this.deleteEntry(key)}>
+              <TouchableOpacity style={{position:'absolute', right: 48, bottom: 6, width: 29, height: 29}} onPress={() => this.deleteEntry(key, image)}>
                 <Image style={{width: '100%', height: '100%', resizeMode : 'cover'}} source={require('../img/button.png')} />
               </TouchableOpacity>
             </View>

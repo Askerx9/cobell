@@ -34,12 +34,9 @@ export default class Configuration extends React.Component{
       ssid: [],
       selectSsid:'',
       password:'',
-      loading: false
+      loading: false,
+      connected: state.report.connected
     }
-
-    firebase.database().ref('users/' + firebase.auth().currentUser.uid + "/connected").on('value', snapshot => {
-      this.setState({connected:snapshot.val()})
-    })
 
     wifi.loadWifiList((wifiStringList) => {
         var wifiArray = JSON.parse(wifiStringList);

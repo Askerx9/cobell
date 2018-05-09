@@ -21,7 +21,6 @@ export default class Login extends React.Component{
     firebase.auth().onAuthStateChanged((user) => {
       if (user) {
         this.props.navigation.navigate('History')
-        console.info(user)
       }
     });
   }
@@ -33,7 +32,6 @@ export default class Login extends React.Component{
 
   onLogInPress(){
     const{email, password} = this.state;
-    console.info('j\'ai cliqué')
     
     firebase.auth().signInWithEmailAndPassword(email, password)
     .then(() => { 

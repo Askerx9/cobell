@@ -1,5 +1,6 @@
 import React from 'react'
 import {StyleSheet, View, Text, Image, Switch, TouchableOpacity} from 'react-native'
+import DatePicker from 'react-native-datepicker'
 
 import firebase from 'firebase';
 
@@ -26,13 +27,38 @@ export default class Settings extends React.Component{
 
     constructor(props){
         super(props)
-
+        const user = firebase.auth().currentUser;
         this.state = {
-            notif : true,
-            silence: false,
-            derange: false,
+            notif : state.report.settings.notif,
+            silence: state.report.settings.silence,
+            derange: state.report.settings.derange,
+            derangeStart: state.report.settings.derangeStart,
+            derangeEnd: state.report.settings.derangeEnd,
+            userId: user.uid,
         }
+
     }
+
+    changeSwitch(key,state){
+        this.setState({[key]:!state})
+        firebase.database().ref().child('users/'+ this.state.userId +'/settings/'+ key).set(!state)
+
+        if(key == 'derange'){
+            this.customTouchableComponent 
+        }
+        
+    }
+    changeDate(key,date){
+        this.setState({[key]:date})
+        if(key == 'derangeStart'){
+            this.datePickerRef.onPressDate()
+        }
+        firebase.database().ref().child('users/'+ this.state.userId +'/settings/'+ key).set(date)
+    }
+
+    
+
+    
     
     deco(){
         firebase.auth().signOut()
@@ -40,6 +66,25 @@ export default class Settings extends React.Component{
     }
 
     render(){
+        let customTouchableComponent = ({ onPress }) => {
+            if(this.state.derange){
+                return (
+                    <TouchableOpacity  onPress={onPress} style={{width:'100%'}}>
+                        <Text style={styles.title}>Ne pas déranger</Text> 
+                        <Text style={styles.texte}>{this.state.derangeStart} - {this.state.derangeEnd}</Text>
+                    </TouchableOpacity>
+                    )
+            }
+            else{
+                return (
+                    <TouchableOpacity style={{width:'100%', opacity: .5}}>
+                        <Text style={styles.title}>Ne pas déranger</Text> 
+                        <Text style={styles.texte}>{this.state.derangeStart} - {this.state.derangeEnd}</Text>
+                    </TouchableOpacity>
+                    )
+            }
+    
+        }
         return(
             <View style={styles.container}>
                 <View style={styles.row}>
@@ -47,21 +92,61 @@ export default class Settings extends React.Component{
                         <Text style={styles.title}>Notifications</Text>
                         <Text style={styles.texte}>Activer les notifications</Text>
                     </View>
-                    <Switch value= {this.state.notif} />
+                    <Switch 
+                    onValueChange = {() => this.changeSwitch("notif", this.state.notif)}
+                    value= {this.state.notif} />
                 </View>
                 <View style={styles.row}>
                     <View style={styles.text}>
                         <Text style={styles.title}>Mode silence</Text>
                         <Text style={styles.texte}>Éteindre le carillon mais laisser les notifs actives</Text>
                     </View>
-                    <Switch value= {this.state.silence} />
+                    <Switch 
+                    onValueChange = {() => this.changeSwitch("silence", this.state.silence)}
+                    value= {this.state.silence} />
                 </View>
                 <View style={styles.row}>
                     <View style={styles.text}>
                         <Text style={styles.title}>Mode ne pas déranger</Text>
                         <Text style={styles.texte}>Désactiver la sonnette durant un temps donné</Text>
                     </View>
-                    <Switch value= {this.state.derange} />
+                    <Switch 
+                    onValueChange = {() => this.changeSwitch("derange", this.state.derange)}
+                    value= {this.state.derange} />
+                </View>
+                <View style={styles.row}>
+                    <DatePicker
+                        style={{width: 200}}
+                        // date="2016-05-15"
+                        mode="time"
+                        confirmBtnText="Suivant"
+                        cancelBtnText="Cancel"
+                        androidMode = "spinner"
+                        onDateChange={(date) => {this.changeDate('derangeStart', date)}}
+                        TouchableComponent={customTouchableComponent}
+                        
+                    />
+                    <DatePicker
+                        style={{width: 200}}
+                        // date="2016-05-15"
+                        mode="time"
+                        confirmBtnText="Suivant"
+                        cancelBtnText="Cancel"
+                        androidMode = "spinner"
+                        onDateChange={(date) => {this.changeDate('derangeEnd', date)}}
+                        
+                        ref={(ref)=>this.datePickerRef=ref}
+                        customStyles={{
+                            dateIcon: {
+                                display: 'none'
+                            },
+                            dateInput: {
+                                display: 'none'
+                            }
+                            // ... You can check the source to find the other keys.
+                        }}
+                    />
+                    
                 </View>
                 <View style={styles.row}>
                     <TouchableOpacity  onPress={() => this.deco()}>
@@ -90,6 +175,13 @@ const styles = StyleSheet.create({
         width: '100%',
         marginTop: 10,
         marginBottom: 20,
+    },
+    touchPicker: {
+        width: "100%"
+    },
+    touchPickerOpacity:{
+        width: "100%",
+        opacity: .7
     },
     title: {
       fontSize: 16,
