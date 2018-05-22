@@ -21,7 +21,10 @@ export default class Login extends React.Component{
     firebase.auth().onAuthStateChanged((user) => {
       if (user) {
         this.props.navigation.navigate('History')
+        global.userId = user.uid
+        global.state = null
       }
+
     });
   }
   

@@ -1,7 +1,6 @@
 import React from 'react'
-import {ActivityIndicator,TouchableOpacity,ImageBackground, View, StyleSheet, Image, Text, ScrollView} from 'react-native'
+import {ActivityIndicator,TouchableOpacity,ImageBackground, View, StyleSheet, Image, Text, ScrollView, RefreshControl} from 'react-native'
 import _ from 'lodash'
-import PushNotification from 'react-native-push-notification'
 
 import { TabNavigator } from 'react-navigation';
 import firebase from 'firebase';
@@ -44,84 +43,30 @@ class History extends React.Component{
       loading: true,
       empty: true,
       cobellDetect: false,
-      data:'',
+      data: "",
       ssid: [], 
+      refreshing: false,
     }
-
   }
 
-  componentDidMount() {
-    PushNotification.configure({
-        onNotification: function(notification) {
-            console.log( 'NOTIFICATION:', notification );
-        },
-    })
-  }
 
   componentWillMount(){
     const user = firebase.auth().currentUser;
-    const getData = firebase.database().ref('users/' + user.uid);
     this.setState({
-      userId: user.uid
+      userId: user.uid,
     })
+    const getData = firebase.database().ref('users/' + user.uid) ;
     
     getData.on('value', snapshot => {
-      global.state = {report: snapshot.val()};
+      
       if(snapshot.val().history != null){
+
         this.setState({
           empty: false,
           loading: false,
-          data: state.report
+          data: snapshot.val()
         })
-        if(snapshot.val().doors){
-          if(snapshot.val().settings.notif){
-            
-            if (snapshot.val().settings.derange){
-              
-              const startTime = snapshot.val().settings.derangeStart
-              const endTime = snapshot.val().settings.derangeEnd
-  
-              const date = new Date()
-  
-  
-              let day = date.getDate()
-              let month = date.getMonth()+1
-              let year = date.getFullYear()
-  
-              if(day < 10){
-                day = "0" + date.getDate()
-              }
-  
-              if(month < 10){
-                month = "0" + (date.getMonth()+1)
-              }
-  
-              const now = Date.now()
-                          
-              const start = new Date(year+'-'+month+'-'+day+'T'+startTime+':00')
-              let end = new Date(year+'-'+month+'-'+day+'T'+endTime+':00')
-  
-              if(end.getTime() < start.getTime()){
-                let newDay = Number(day)+1
-                if(newDay < 10){
-                  newDay = "0" + newDay
-                }
-                end = new Date(year+'-'+month+'-'+newDay+'T'+endTime+':00')
-                console.log('day +')
-              }
-              if(now < start.getTime() || now > end.getTime()){
-                PushNotification.localNotification({
-                  message: snapshot.val().name + " une personne est à votre porte!", // (required)
-                });
-              }
-            }else{
-              PushNotification.localNotification({
-                message: snapshot.val().name + " une personne est à votre porte!", // (required)
-              });
-            }
-            
-          }
-        }
+
       }
       else{
         this.setState({
@@ -166,6 +111,16 @@ class History extends React.Component{
     })
   }
 
+  _onRefresh() {
+    this.setState({refreshing: true});
+    wifi.loadWifiList((wifiStringList) => {
+      console.info("coucou")
+      this.setState({refreshing: false});
+    }, (error) => {
+        console.log(error);
+      })
+  }
+
   deleteEntry(key, image){
     firebase.database().ref().child('users/' + this.state.userId + '/history/' + key).remove()
     firebase.storage().ref().child(image).delete()
@@ -173,6 +128,7 @@ class History extends React.Component{
       this.setState({
         empty: true
       })
+      firebase.database().ref().child('users/' + this.state.userId + '/doors').set(false)
     }
   }
 
@@ -183,6 +139,17 @@ class History extends React.Component{
       new_obj[i] = obj[i];
     })
     return new_obj;
+  }
+
+  goToDoors(img,time,key){
+    
+    firebase.database().ref().child('users/'+ userId +'/fromHistory').set(true)
+    this.props.navigation.navigate('Doors', {
+              fromHistory: true,
+              imagefromHistory : img,
+              timeFromHistory : time,
+              id: key
+            })
   }
 
 
@@ -198,10 +165,20 @@ class History extends React.Component{
     }else{
       if(this.state.empty && !this.state.cobellDetect && !this.state.loading){
         return(
-          <View style={styles.container}>
-            <Image style={ styles.img } source={ require('../img/ringabell.png') } />
-            <Text style={styles.texte}>Personne n’a sonné à votre porte récemment.</Text>
-          </View>
+          <ScrollView
+            style={{backgroundColor: '#FCFDFE',}}
+            refreshControl={
+              <RefreshControl
+                refreshing={this.state.refreshing}
+                onRefresh={this._onRefresh.bind(this)}
+              />
+            }
+          >
+            <View style={styles.container}>
+              <Image style={ styles.img } source={ require('../img/ringabell.png') } />
+              <Text style={styles.texte}>Personne n’a sonné à votre porte récemment.</Text>
+            </View>
+          </ScrollView>
         )
       }
       else if(!this.state.empty && this.state.cobellDetect && !this.props.loading){
@@ -279,7 +256,7 @@ class History extends React.Component{
           const image = result[0];
 
           return(
-            <View key={key} style={{position:'relative'}}>
+            <TouchableOpacity key={key} style={{position:'relative'}} onPress={() => this.goToDoors(img,time,key)}>
               <ImageBackground style={styles.infoContainer} source={require('../img/bg.png')}>
                 <Image source={img} style = {{borderRadius: 60, height: 60, width: 60, resizeMode : 'cover'}}/>
                 <View style = {{height: 45, width: 1, backgroundColor:"#C6CCC2"}}></View>
@@ -294,12 +271,20 @@ class History extends React.Component{
               <TouchableOpacity style={{position:'absolute', right: 48, bottom: 6, width: 29, height: 29}} onPress={() => this.deleteEntry(key, image)}>
                 <Image style={{width: '100%', height: '100%', resizeMode : 'cover'}} source={require('../img/button.png')} />
               </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           )
         })
 
         return(
-          <ScrollView style={{backgroundColor: '#FCFDFE',}}>
+          <ScrollView 
+            style={{backgroundColor: '#FCFDFE',}}
+            refreshControl={
+              <RefreshControl
+                refreshing={this.state.refreshing}
+                onRefresh={this._onRefresh.bind(this)}
+              />
+            }
+          >
             {data}
           </ScrollView>
         )
@@ -310,15 +295,16 @@ class History extends React.Component{
 }
 
 export default TabNavigator({
-  History: { screen: History },
   Doors: {screen: Doors},
+  History: { screen: History },
   Settings: { screen: Settings },
 },{
   tabBarPosition: 'bottom',
   tabBarOptions: {
     showIcon: true,
     showLabel: true,
-    activeTintColor: '#C42C51',
+    activeTintColor: '#000000',
+    inactiveTintColor: '#C42C51',
     labelStyle: {
       color: '#C6CCC2',
       fontSize: 12,
@@ -327,7 +313,7 @@ export default TabNavigator({
     pressColor: '#C42C51',
     indicatorStyle: {
       backgroundColor: '#C42C51',
-      height: 1,
+      height: 2,
     },
     style: {
       backgroundColor: '#ffffff', 
